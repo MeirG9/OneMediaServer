@@ -1,2 +1,2 @@
 # MediaMaster
-The complete guide to building the perfect media server - "fire-and-forget"
+The complete guide to building the perfect media server - "set and forget"
