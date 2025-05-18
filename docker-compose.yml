@@ -4,6 +4,8 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -19,6 +21,8 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -34,6 +38,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.25
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -51,6 +57,8 @@ services:
       - PUID=${PUID}
       - PGID=${PUID}
       - TZ=${TZ}
+    mem_limit: 768m
+    cpus: 0.5
     volumes:
       - ${CONF}/rdtclient:/data/db
       - ${DATA}/downloads:/data/downloads
@@ -73,6 +81,8 @@ services:
     volumes:
       - ${CONF}/bazarr:/config
       - ${DATA}:/data
+    mem_limit: 384m
+    cpus: 0.25
     ports:
       - 6767:6767
     restart: unless-stopped
@@ -85,6 +95,8 @@ services:
       - PUID=${PUID}
       - PGID=${PUID}
       - TZ=${TZ}
+    mem_limit: 128m
+    cpus: 0.1
     volumes:
       - ${CONF}/heimdall:/config
     ports:
@@ -100,6 +112,8 @@ services:
       - PUID=${PUID}
       - PGID=${PUID}
       - TZ=${TZ}
+    mem_limit: 512m
+    cpus: 0.5
     volumes:
       - ${CONF}/overseerr:/config
     ports:
@@ -114,38 +128,26 @@ services:
       - PUID=${PUID}
       - PGID=${PUID}
       - TZ=${TZ}
+    mem_limit: 256m
+    cpus: 0.25
     volumes:
       - ${CONF}/tautulli:/config
     ports:
       - 8181:8181
     restart: unless-stopped
 
-
-  jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
-    container_name: jellyfin
-    environment:
-      - PUID=${PUID}
-      - PGID=${PUID}
-      - TZ=${TZ}
-    volumes:
-      - ${CONF}/jellyfin:/config
-      - ${DATA}:/data
-    ports:
-      - 8096:8096
-      - 8920:8920 #optional
-      - 7359:7359/udp #optional
-      - 1900:1900/udp #optional
-    restart: unless-stopped
-
   watchtower:
     image: containrrr/watchtower
+    mem_limit: 64m
+    cpus: 0.1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
+    mem_limit: 256m
+    cpus: 0.25
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_HTML=${LOG_HTML:-false}
@@ -158,6 +160,8 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
+    mem_limit: 128m
+    cpus: 0.1
     ports:
       - 9000:9000
     volumes:
