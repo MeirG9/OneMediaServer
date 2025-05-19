@@ -1,0 +1,439 @@
+version: "3.8"
+
+networks:
+  web:
+    driver: bridge
+  backend:
+    driver: bridge
+
+services:
+  # --- Traefik Reverse Proxy -------------------------------------------------
+  traefik:
+    image: traefik:v2.9
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.myresolver.acme.tlschallenge=true
+      - --certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.myresolver.acme.storage=/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"   # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${CONF}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ${CONF}/traefik/acme.json:/acme.json
+    environment:
+      - TZ=${TZ}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - web
+
+  # --- Sonarr -------------------------------------------------
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/sonarr:/config:rw
+      - ${DATA}:/data:rw
+    ports:
+      - "8989:8989"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/health"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- Radarr -------------------------------------------------
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/radarr:/config:rw
+      - ${DATA}:/data:rw
+    ports:
+      - "7878:7878"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878/health"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)"
+      - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.routers.radarr.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- Prowlarr -------------------------------------------------
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/prowlarr:/config:rw
+    ports:
+      - "9696:9696"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696/health"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)"
+      - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- rdt-client -------------------------------------------------
+  rdtclient:
+    image: rogerfar/rdtclient
+    container_name: rdtclient
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    mem_limit: 3000m
+    cpus: 2
+    volumes:
+      - ${CONF}/rdtclient:/config:rw
+      - ${DATA}/downloads:/downloads:rw
+    ports:
+      - "6500:6500"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:6500/ || exit 1"]
+      interval: 2m
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+
+  # --- Bazarr -------------------------------------------------
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/bazarr:/config:rw
+      - ${DATA}:/data:ro
+    ports:
+      - "6767:6767"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6767/health"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.${DOMAIN}`)"
+      - "traefik.http.routers.bazarr.entrypoints=websecure"
+      - "traefik.http.routers.bazarr.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- Overseerr -------------------------------------------------
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/overseerr:/config:rw
+    ports:
+      - "5055:5055"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5055/api/v1/system/status"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.overseerr.rule=Host(`overseerr.${DOMAIN}`)"
+      - "traefik.http.routers.overseerr.entrypoints=websecure"
+      - "traefik.http.routers.overseerr.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- Tautulli -------------------------------------------------
+  tautulli:
+    image: lscr.io/linuxserver/tautulli:latest
+    container_name: tautulli
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/tautulli:/config:rw
+    ports:
+      - "8181:8181"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8181/api/v2?cmd=test&apikey=${TAUTULLI_API_KEY}"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.tautulli.rule=Host(`tautulli.${DOMAIN}`)"
+      - "traefik.http.routers.tautulli.entrypoints=websecure"
+      - "traefik.http.routers.tautulli.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- Heimdall -------------------------------------------------
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/heimdall:/config:rw
+    ports:
+      - "80:80"
+      - "443:443"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.heimdall.rule=Host(`heimdall.${DOMAIN}`)"
+      - "traefik.http.routers.heimdall.entrypoints=websecure"
+      - "traefik.http.routers.heimdall.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- FlareSolverr -------------------------------------------------
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=${TZ}
+    ports:
+      - "8191:8191"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8191/status"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+
+  # --- Notifiarr -------------------------------------------------
+  notifiarr:
+    image: golift/notifiarr
+    container_name: notifiarr
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${CONF}/notifiarr:/config:rw
+      - /var/run/utmp:/var/run/utmp:ro
+      - /etc/machine-id:/etc/machine-id:ro
+    ports:
+      - "5454:5454"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5454/ping"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+
+  # --- xTeVe -------------------------------------------------
+  xteve:
+    image: dnsforge/xteve
+    container_name: xteve
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${CONF}/xteve:/home/xteve/conf:rw
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "34400:34400"
+      - "1900:1900/udp"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:34400/status"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "autoheal=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+
+  # --- Portainer -------------------------------------------------
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    volumes:
+      - ${CONF}/portainer:/data:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/status"]
+      interval: 90s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=myresolver"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
+
+  # --- Autoheal -------------------------------------------------
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_INTERVAL=30         # check every 30s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    networks:
+      - backend
+      - web
