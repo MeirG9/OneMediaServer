@@ -1,0 +1,12 @@
+# Docker envs and secrets
+.env
+secrets.env
+acme.json
+
+# Node, Python, IDE, OS artifacts
+node_modules/
+__pycache__/
+*.log
+.DS_Store
+.vscode/
+.idea/
