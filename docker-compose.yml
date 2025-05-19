@@ -13,29 +13,44 @@ services:
     container_name: traefik
     restart: unless-stopped
     command:
-      - --api.insecure=true
+      - --api.dashboard=true
       - --providers.docker=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      - --entrypoints.dashboard.address=:8080
       - --certificatesresolvers.myresolver.acme.tlschallenge=true
       - --certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}
       - --certificatesresolvers.myresolver.acme.storage=/acme.json
+      - --log.level=INFO
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"   # Traefik dashboard
+      - "8080:8080"   # Traefik dashboard (protected by BasicAuth)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${CONF}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ${CONF}/traefik/acme.json:/acme.json
     environment:
       - TZ=${TZ}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/dashboard/ || exit 1"]
+      interval: 90s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=dashboard"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_USER}:${TRAEFIK_PASSWORD_HASH}"
     logging:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - web
 
@@ -48,6 +63,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    mem_limit: 1024m
+    cpus: 1
     volumes:
       - ${CONF}/sonarr:/config:rw
       - ${DATA}:/data:rw
@@ -57,6 +74,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8989/health"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -69,6 +87,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
@@ -82,6 +101,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    mem_limit: 1024m
+    cpus: 1
     volumes:
       - ${CONF}/radarr:/config:rw
       - ${DATA}:/data:rw
@@ -91,6 +112,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:7878/health"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -103,6 +125,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
@@ -116,6 +139,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    mem_limit: 512m
+    cpus: 0.5
     volumes:
       - ${CONF}/prowlarr:/config:rw
     ports:
@@ -124,6 +149,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:9696/health"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -136,6 +162,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
@@ -160,6 +187,7 @@ services:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:6500/ || exit 1"]
       interval: 2m
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -168,6 +196,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
 
@@ -180,6 +209,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    mem_limit: 512m
+    cpus: 0.5
     volumes:
       - ${CONF}/bazarr:/config:rw
       - ${DATA}:/data:ro
@@ -189,6 +220,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:6767/health"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -201,6 +233,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
@@ -214,6 +247,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    mem_limit: 512m
+    cpus: 0.5
     volumes:
       - ${CONF}/overseerr:/config:rw
     ports:
@@ -222,6 +257,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5055/api/v1/system/status"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -234,6 +270,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
@@ -247,6 +284,9 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - TAUTULLI_API_KEY=${TAUTULLI_API_KEY}
+    mem_limit: 512m
+    cpus: 0.5
     volumes:
       - ${CONF}/tautulli:/config:rw
     ports:
@@ -255,6 +295,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8181/api/v2?cmd=test&apikey=${TAUTULLI_API_KEY}"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -267,6 +308,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
@@ -280,15 +322,15 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    mem_limit: 256m
+    cpus: 0.25
     volumes:
       - ${CONF}/heimdall:/config:rw
-    ports:
-      - "80:80"
-      - "443:443"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -301,6 +343,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
@@ -315,12 +358,15 @@ services:
       - LOG_HTML=${LOG_HTML:-false}
       - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
       - TZ=${TZ}
+    mem_limit: 256m
+    cpus: 0.25
     ports:
       - "8191:8191"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8191/status"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -329,6 +375,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
 
@@ -339,6 +386,9 @@ services:
     restart: unless-stopped
     environment:
       - TZ=${TZ}
+      - NOTIFIARR_API_KEY=${NOTIFIARR_API_KEY}
+    mem_limit: 256m
+    cpus: 0.25
     volumes:
       - ${CONF}/notifiarr:/config:rw
       - /var/run/utmp:/var/run/utmp:ro
@@ -349,6 +399,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5454/ping"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -357,6 +408,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
 
@@ -369,6 +421,8 @@ services:
       - TZ=${TZ}
       - PUID=${PUID}
       - PGID=${PGID}
+    mem_limit: 512m
+    cpus: 0.5
     volumes:
       - ${CONF}/xteve:/home/xteve/conf:rw
       - /etc/localtime:/etc/localtime:ro
@@ -379,6 +433,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:34400/status"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -387,6 +442,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
 
@@ -395,6 +451,10 @@ services:
     image: portainer/portainer-ce:latest
     container_name: portainer
     restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
       - ${CONF}/portainer:/data:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -404,6 +464,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:9000/api/status"]
       interval: 90s
       timeout: 10s
+      start_period: 30s
       retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
@@ -415,9 +476,39 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
+      
+  # --- Prometheus -------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ${CONF}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/ready"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  prometheus_data:
 
   # --- Autoheal -------------------------------------------------
   autoheal:
@@ -425,7 +516,7 @@ services:
     container_name: autoheal
     restart: unless-stopped
     environment:
-      - AUTOHEAL_INTERVAL=30         # check every 30s
+      - AUTOHEAL_INTERVAL=30
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
@@ -434,6 +525,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
     networks:
       - backend
       - web
