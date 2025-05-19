@@ -9,8 +9,8 @@ cd "$(dirname "$0")"
 
 echo "📦 Setting up directory structure for OneMediaServer..."
 
-# Load secrets if exist
-if [ -f "$SECRETS_FILE" ]; then
+# Load secrets if defined and file exists
+if [ -n "${SECRETS_FILE:-}" ] && [ -f "$SECRETS_FILE" ]; then
   echo "🔐 Loading secrets from $SECRETS_FILE..."
   source "$SECRETS_FILE"
 fi
@@ -38,3 +38,4 @@ mkdir -p "$CONF" \
 
 cd "$BASE_DIR"
 docker compose up -d
+
