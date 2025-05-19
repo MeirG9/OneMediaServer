@@ -15,18 +15,26 @@ if [ -f "$SECRETS_FILE" ]; then
   source "$SECRETS_FILE"
 fi
 
-# Ensure required base directories exist
+# Ensure base directories exist
 mkdir -p "$BASE_DIR"
-cp docker-compose.yml "$BASE_DIR/" || echo "⚠️ Missing docker-compose.yml"
-cp .env "$BASE_DIR/" || echo "⚠️ Missing .env"
+
+# Copy docker-compose and .env if not already inside BASE_DIR
+cp docker-compose.yml "$BASE_DIR/" 2>/dev/null || echo "⚠️ Missing docker-compose.yml"
+cp .env "$BASE_DIR/" 2>/dev/null || echo "⚠️ Missing .env"
 
 # Import external config if provided
-if [ -n "$CONFIG_SOURCE" ] && [ -d "$CONFIG_SOURCE" ]; then
+if [ -n "${CONFIG_SOURCE:-}" ] && [ -d "$CONFIG_SOURCE" ]; then
   echo "📁 Importing configuration from $CONFIG_SOURCE"
-  cp -r "$CONFIG_SOURCE/"* "$CONF/" || echo "⚠️ Failed to import configs"
+  cp -rn "$CONFIG_SOURCE/"* "$CONF/" || echo "⚠️ Failed to import configs"
 fi
 
-mkdir -p "$CONF" "$DATA/media/movies" "$DATA/media/tv" "$DATA/downloads/Radarr" "$DATA/downloads/Sonarr" "$BASE_DIR/secrets"
+# Create necessary directory structure
+mkdir -p "$CONF" \
+         "$DATA/media/movies" \
+         "$DATA/media/tv" \
+         "$DATA/downloads/Radarr" \
+         "$DATA/downloads/Sonarr" \
+         "$BASE_DIR/secrets"
 
 cd "$BASE_DIR"
 docker compose up -d
